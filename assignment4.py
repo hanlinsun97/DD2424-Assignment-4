@@ -1,7 +1,32 @@
 import numpy as np
 
 # IMPORT DATA IS D * 1
-with open('goblet_book.txt','w') as f:
+with open('goblet_book.txt','r') as f:
+    data = f.read()
+
+
+m = 100
+c = 10
+
+def give_dictionary(data):
+    dictionary = {}
+    inverse_dictionary = {}
+    for x in data:
+        if x not in dictionary.keys():
+            dictionary[x] = str(len(dictionary))
+    for key in dictionary.keys():
+        value = dictionary[key]
+        inverse_dictionary[value] = key
+    return dictionary, inverse_dictionary
+
+def one_hot(dictionary, data, start, Parameters):  # Will not give the whole one-hoted list 80 * 1100000!
+    len_dictionary = len(dictionary)
+    one_hot_label = np.zeros([len_dictionary, Parameters.seq_len])
+    data = list(data)
+    for i in range(start, start + Parameters.seq_len):
+        value = dictionary[data[i]]
+        one_hot_label[int(value), i] = 1
+    return one_hot_label
 
 
 
@@ -12,19 +37,19 @@ def initialization(m,d,c):
     U = np.random.normal(0,0.001,[m,d])
     V = np.random.normal(0,0.001,[c,m])
     C = np.zeros([c,1])
-return W, b, U, V, C
+    return W, b, U, V, C
 
 class Inter_parameters(object):
     def __init__(self,m,c):
         self.initial_learning_rate = 0.01
         self.regularization = 0.001
-        self.T = 50 # MAX TIME STEP
-        self.h = np.zeros([m,self.T-1])
-        self.a = np.zeros([m,self.T-1])
-        self.o = np.zeros([c,self.T-1])
-        self.p = np.zeros([c,self.T-1])
+        self.seq_len = 25 # MAX TIME STEP
+        self.h = np.zeros([m,self.seq_len-1])
+        self.a = np.zeros([m,self.seq_len-1])
+        self.o = np.zeros([c,self.seq_len-1])
+        self.p = np.zeros([c,self.seq_len-1])
 
-Parameters = Inter_parameters()
+Parameters = Inter_parameters(m,c)
 
 
 class Changable_parameters(object):
@@ -58,8 +83,9 @@ class Changable_parameters(object):
     def Compute_loss(Parameters, Y):
         loss = -np.sum(np.log(Y.T * Parameters.p))
         return loss
-
-
+dictionary,_ = give_dictionary(data)
+one_hot = one_hot(dictionary, data, 0, Parameters)
+print(one_hot)
 
 
 
