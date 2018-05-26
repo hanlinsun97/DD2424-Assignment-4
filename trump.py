@@ -1,12 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 # IMPORT DATA IS D * 1
-with open('goblet_book.txt','r') as f:
-    data = f.read()
+from readfile import readfile
 
+data = readfile()
+data_new = []
+for i in range(len(data)):
+    for x in data[i]:
+        data_new.append(x)
+data = data_new
 m = 100
-d = 80
+d = 402
 MAX_EPOCH = 100
+
 def give_dictionary(data):
     dictionary = {}
     inverse_dictionary = {}
@@ -214,7 +220,7 @@ def train(Changable, Parameters, data, dictionary, inverse_dictionary):
     train_step_in_a_epoch = int(len(list(data))/Parameters.seq_len)
     smooth_loss = 0
     SMOOTH_LOSS = []
-    for epoch in range(2):
+    for epoch in range(3):
         start = 0
         for i in range(train_step_in_a_epoch):
             if start + Parameters.seq_len + 1 > len(list(data)):
@@ -266,6 +272,7 @@ def train(Changable, Parameters, data, dictionary, inverse_dictionary):
     return Changable, SMOOTH_LOSS
 
 dictionary, inverse_dictionary = give_dictionary(data)
+print((dictionary))
 Parameters = Inter_parameters(m,d)
 W,b,U,V,C = initialization(m,d)
 Changable = Changable_parameters(W,b,U,V,C)
