@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 with open('goblet_book.txt','r') as f:
     data = f.read()
 
-m = 100
+m = 5
 d = 80
-MAX_EPOCH = 100
+MAX_EPOCH = 10
 def give_dictionary(data):
     dictionary = {}
     inverse_dictionary = {}
@@ -18,26 +18,32 @@ def give_dictionary(data):
         inverse_dictionary[value] = key
     return dictionary, inverse_dictionary
 
-def one_hot(dictionary, data, start, Parameters):  # Will not give the whole one-hoted list 80 * 1100000!
+def one_hot_label(dictionary, data, Parameters):  # Will not give the whole one-hoted list 80 * 1100000!
     len_dictionary = len(dictionary)
-    one_hot_label_x = np.zeros([len_dictionary, Parameters.seq_len])
-    one_hot_label_y = np.zeros([len_dictionary, Parameters.seq_len])
+    one_hot_label_x = np.zeros([len_dictionary, len(list(data))-1])
+    one_hot_label_y = np.zeros([len_dictionary, len(list(data))-1])
     data = list(data)
-    for i in range(start, start + Parameters.seq_len):
-        value = dictionary[data[i]]
-        one_hot_label_x[int(value), i-start] = 1
-    for j in range(start+1, start+Parameters.seq_len + 1):
-        value = dictionary[data[j]]
-        one_hot_label_y[int(value), j-start-1] = 1
-    return one_hot_label_x,  one_hot_label_y, len_dictionary
+    for i in range(len(list(data))-1):
+        value_x = dictionary[data[i]]
+        one_hot_label_x[int(value_x), i] = 1
+        value = dictionary[data[i+1]]
+        one_hot_label_y[int(value), i] = 1
+    return one_hot_label_x,  one_hot_label_y
 
-
+def one_hot(one_hot_label_x, one_hot_label_y, start, Parameters):
+    if start + Parameters.seq_len > np.shape(one_hot_label_x)[1]:
+        start = np.shape(one_hot_label_x) - Parameters.seq_len
+    one_hot_label_x_part = one_hot_label_x[:,start:start+Parameters.seq_len]
+    one_hot_label__y_part = one_hot_label_y[:,start:start+Parameters.seq_len]
+    return one_hot_label_x_part, one_hot_label__y_part
+    
+    
 # define initial parameters
 def initialization(m,d):
-    W = np.random.rand(m,m) * 0.01
+    W = np.random.normal(0,1,[m,m]) * 0.01
     b = np.zeros([m,1])
-    U = np.random.rand(m,d) * 0.01
-    V = np.random.rand(d,m) * 0.01
+    U = np.random.normal(0,1,[m,d]) * 0.01
+    V = np.random.normal(0,1,[d,m]) * 0.01
     C = np.zeros([d,1])
     return W, b, U, V, C
 
@@ -66,7 +72,7 @@ class Gradient_class(object):
 
 
     def AdamGradOptimizer(self,Changable, Parameters, W_before, V_before, U_before, b_before, C_before):
-
+    
         W_after = W_before + np.power(self.grad_W,2)
         V_after = V_before + np.power(self.grad_V,2)
         U_after = U_before + np.power(self.grad_U,2)
@@ -96,7 +102,6 @@ class Changable_parameters(object):
         self.V = V
         self.C = C
 
-
     def Compute_P(self, Parameters, X):
 
         def softmax(x):
@@ -115,7 +120,7 @@ class Changable_parameters(object):
                 Parameters.h[:,i] = np.tanh(Parameters.a[:,i])
                 Parameters.o[:,i] = np.reshape(np.dot(self.V, np.reshape(Parameters.h[:,i],[-1,1])) + self.C, d)
                 Parameters.p[:,i] = softmax(Parameters.o[:,i])
-        Parameters.h0 = Parameters.h[:,Parameters.seq_len-1]
+        
         return Parameters
 
     def Compute_loss(self, Parameters, Y):
@@ -148,27 +153,35 @@ class Changable_parameters(object):
         for i in range(Parameters.seq_len)[::-1]:
             if i == Parameters.seq_len - 1:
                 Gradient.grad_h[:,i] = np.dot(Gradient.grad_o[i,:].T, Changable.V)
-                Gradient.grad_a[:,i] = Gradient.grad_h[:,i] * (1 - np.tanh(Parameters.a[:,i]) * np.tanh(Parameters.a[:,i]))
+                Gradient.grad_a[:, i] = Gradient.grad_h[:, i] * (1 - np.power(np.tanh(Parameters.a[:, i]), 2))
+                Gradient.grad_U = Gradient.grad_U + np.dot(np.reshape(Gradient.grad_a[:,i], [m,1]), np.reshape(X[:,i], [1,d])) 
+                Gradient.grad_b = Gradient.grad_b + np.reshape(Gradient.grad_a[:,i], [m,1])
+           
             else:
                 Gradient.grad_h[:,i] = np.dot(Gradient.grad_o[i,:].T, Changable.V) + np.dot(Changable.W ,Gradient.grad_a[:,i+1])
                 Gradient.grad_a[:,i] = Gradient.grad_h[:,i] * (1 - np.power(np.tanh(Parameters.a[:,i]),2))
+                Gradient.grad_U = Gradient.grad_U + np.dot(np.reshape(Gradient.grad_a[:, i], [m, 1]), np.reshape(X[:, i], [1,d]))
+                Gradient.grad_b = Gradient.grad_b + np.reshape(Gradient.grad_a[:, i], [m, 1])
+                Gradient.grad_W = Gradient.grad_W + np.dot(np.reshape(Gradient.grad_a[:,i+1], [m,1]),np.reshape(Parameters.h[:,i],[1,m]))
+     
+        Gradient.grad_W = Gradient.grad_W + np.dot(Gradient.grad_a[:, 0], Parameters.h0)
+            
 
-        H_inter = Parameters.h
-        H_inter = np.delete(H_inter, Parameters.seq_len-1, 1)
-        H_inter = np.c_[np.reshape(Parameters.h0,[m,1]), H_inter]
 
-        Gradient.grad_W = np.dot(Gradient.grad_a, H_inter.T)
-        Gradient.grad_U = np.dot(Gradient.grad_a, X.T)
-        Gradient.grad_b = np.reshape(np.sum(Gradient.grad_a,1), [m,1])
+        # H_inter = Parameters.h
+        # H_inter = np.delete(H_inter, Parameters.seq_len-1, 1)
+        # H_inter = np.c_[np.reshape(Parameters.h0,[m,1]), H_inter]
+
+        # Gradient.grad_W = np.dot(Gradient.grad_a, H_inter.T)
+        # Gradient.grad_U = np.dot(Gradient.grad_a, X.T)
+        # Gradient.grad_b = np.reshape(np.sum(Gradient.grad_a,1), [m,1])
         Gradient.grad_c = np.reshape(np.sum(Gradient.grad_o,0), [-1,1])
         Gradient.grad_o = Gradient.grad_o.T
+        
         return Gradient
 
     def Numerical_Gradient(self,Parameters,X,Y):
-        # h0 = Parameters.h0
-        # # print(np.dot(self.W, h0).shape)
-        # # print(np.dot(self.U, np.reshape(X[:,0],[-1,1])).shape)
-        # # print(self.b.shape)
+
         def Compute_loss(self, Parameters, Y):
             loss = -np.sum(Y * np.log(Parameters.p))
             return loss
@@ -189,37 +202,38 @@ class Changable_parameters(object):
                     Parameters.h[:,i] = np.tanh(Parameters.a[:,i])
                     Parameters.o[:,i] = np.reshape(np.dot(self.V, np.reshape(Parameters.h[:,i],[-1,1])) + self.C, d)
                     Parameters.p[:,i] = softmax(Parameters.o[:,i])
-            Parameters.h0 = Parameters.h[:,Parameters.seq_len-1]
+            
             return Parameters
 
-        grad_V = np.zeros(np.shape(self.V))
-        for i in range(self.V.shape[0]):
-            for j in range(self.V.shape[1]):
+        grad_W = np.zeros(np.shape(self.W))
+        for i in range(self.W.shape[0]):
+            for j in range(self.W.shape[1]):
                 self_try = self
-                self_try.V[i][j] = self.V[i][j]-0.000001
+                self_try.W[i][j] = self.W[i][j]-0.0001
                 Parameters = Compute_P(self_try, Parameters, X)
                 loss_1 = Compute_loss(self_try, Parameters, Y)
-                self.V[i][j] += 0.000001
-                self_try.V[i][j] = self.V[i][j] + 0.000001
+                self.W[i][j] += 0.0001
+                self_try.W[i][j] = self.W[i][j] + 0.0001
                 Parameters = Compute_P(self_try, Parameters, X)
                 loss_2 = Compute_loss(self_try, Parameters, Y)
-                grad_V[i][j] = (loss_2 - loss_1) / 0.000002
+                grad_W[i][j] = (loss_2 - loss_1) / 0.0002
 
-        return grad_V
+        return grad_W
 
 
 
 def train(Changable, Parameters, data, dictionary, inverse_dictionary):
-
+    one_hot_label_x, one_hot_label_y = one_hot_label(dictionary, data, Parameters)
+    
     train_step_in_a_epoch = int(len(list(data))/Parameters.seq_len)
     smooth_loss = 0
     SMOOTH_LOSS = []
-    for epoch in range(2):
+    for epoch in range(10):
         start = 0
         for i in range(train_step_in_a_epoch):
-            if start + Parameters.seq_len + 1 > len(list(data)):
-                start = len(list(data)) - Parameters.seq_len - 1
-            X, Y, d = one_hot(dictionary, data, start, Parameters)
+            if start + Parameters.seq_len > len(list(data)):
+                start = len(list(data)) - Parameters.seq_len
+            X, Y = one_hot(one_hot_label_x, one_hot_label_y, start, Parameters)
             start = start + Parameters.seq_len
             Parameters = Changable.Compute_P(Parameters, X)
             loss = Changable.Compute_loss(Parameters, Y)
@@ -234,11 +248,19 @@ def train(Changable, Parameters, data, dictionary, inverse_dictionary):
                 SMOOTH_LOSS.append(smooth_loss)
             Gradient = Gradient_class(Changable, Parameters)
             Gradient = Changable.Compute_Gradient(Gradient, Parameters, Changable, X, Y)
+            # grad_V = Changable.Numerical_Gradient(Parameters,X,Y)
+            # grad_V_com = Gradient.grad_W
+            # print(grad_V)
+            # print(grad_V_com)
+            # print((grad_V-grad_V_com)/grad_V)
+            # exit()
             if i % 10000 == 0:
                 Text = []
                 Character = []
                 X_test = np.zeros([d,1])
-                X_test[1] = 1
+                a = np.random.rand() * 70.0
+                a = int(a)
+                X_test[a] = 1
                 Text.append(X_test)
                 for j in range(1000):
                     prediction = Changable.Compute_prediction(Parameters, inverse_dictionary, Text[j])
@@ -262,7 +284,9 @@ def train(Changable, Parameters, data, dictionary, inverse_dictionary):
                 U_before = U_after
                 b_before = b_after
                 C_before = C_after
+
             Changable, W_after, V_after, U_after, b_after, C_after  = Gradient.AdamGradOptimizer(Changable,Parameters,W_before, V_before, U_before, b_before, C_before)
+            Parameters.h0 = Parameters.h[:, Parameters.seq_len-1]
     return Changable, SMOOTH_LOSS
 
 dictionary, inverse_dictionary = give_dictionary(data)
