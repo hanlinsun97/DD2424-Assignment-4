@@ -285,7 +285,6 @@ def train(Changable, Parameters, data, dictionary, inverse_dictionary):
 
     for epoch in range(2):
         start = 0
-
         for i in range(train_step_in_a_epoch):
 
             if start + Parameters.seq_len + 1 > len(list(data)):
@@ -362,7 +361,7 @@ W,b,U,V,C = initialization(m,d)
 Changable = Changable_parameters(W,b,U,V,C)
 Changable, SMOOTH_LOSS =  train(Changable, Parameters, data, dictionary, inverse_dictionary)
 para_dic = {}
-X_axis = range(0, 500*len(SMOOTH_LOSS), 500)
+X_axis = range(0, 200*len(SMOOTH_LOSS), 200)
 plt.figure()
 plt.xlabel("epoch")
 plt.ylabel("smooth loss")
