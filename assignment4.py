@@ -283,7 +283,7 @@ def train(Changable, Parameters, data, dictionary, inverse_dictionary):
     smooth_loss = 0
     SMOOTH_LOSS = []
 
-    for epoch in range(2):
+    for epoch in range(100):
         start = 0
         for i in range(train_step_in_a_epoch):
 
@@ -319,6 +319,7 @@ def train(Changable, Parameters, data, dictionary, inverse_dictionary):
             # print((grad_U[0] - grad_U_an[0]) / grad_U[0])
             # print((grad_W[0] - grad_W_an[0]) / grad_W[0])
             # print((grad_V[0] - grad_V_an[0]) / grad_V[0])
+            # exit()
 
             if i % 10000 == 0:
                 Text = []
